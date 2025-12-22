@@ -3,7 +3,7 @@ QQ机器人主程序 - 使用qq-botpy框架（QQ群机器人）
 功能：
 1. AI智能对话
 2. /看风景 - 随机显示风景图
-3. /看涩图 - 随机显示涩图
+3. /看setu - 随机显示图片
 4. /每日金句 - 输出夸赞作者的金句
 """
 
@@ -71,8 +71,8 @@ class MyClient(botpy.Client):
                 print("[Debug] 执行看风景命令")
                 await self._handle_scenery_group(message)
             
-            elif msg.startswith("/看涩图") or msg.startswith("/涩图") or msg.startswith("/setu"):
-                print("[Debug] 执行看涩图命令")
+            elif msg.startswith("/看setu") or msg.startswith("/setu") or msg.startswith("/看涩图") or msg.startswith("/涩图"):
+                print("[Debug] 执行看setu命令")
                 await self._handle_setu_group(message)
             
             elif msg.startswith("/每日金句") or msg.startswith("/金句") or msg.startswith("/夸夸"):
@@ -84,7 +84,7 @@ class MyClient(botpy.Client):
                 print("[Debug] 执行帮助命令")
                 help_text = """可用命令：
 /看风景 - 获取随机风景图
-/看涩图 - 获取随机涩图
+/看setu - 获取随机图片
 /每日金句 - 获取夸赞ZerD的金句
 
 直接发送消息（非命令）可进行AI对话"""
@@ -147,7 +147,7 @@ class MyClient(botpy.Client):
             traceback.print_exc()
     
     async def _handle_setu_group(self, message: GroupMessage):
-        """处理QQ群看涩图命令"""
+        """处理QQ群看setu命令"""
         try:
             async with httpx.AsyncClient(timeout=15.0) as client:
                 params = {"r18": 0, "num": 1, "size": "original"}
@@ -198,9 +198,9 @@ class MyClient(botpy.Client):
                 group_openid=message.group_openid,
                 msg_type=0,
                 msg_id=message.id,
-                content="获取涩图失败，请稍后再试~"
+                content="获取图片失败，请稍后再试~"
             )
-            print(f"[Error] 获取涩图失败: {e}")
+            print(f"[Error] 获取setu失败: {e}")
             import traceback
             traceback.print_exc()
     
