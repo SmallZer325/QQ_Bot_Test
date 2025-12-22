@@ -1,0 +1,9 @@
+# 机器人配置
+# 从QQ开放平台获取：https://bot.q.qq.com/
+appid: "102820001"
+secret: "zMk9YyPqIkDgAfAgCjGoMvU4fGsU7kO2"
+
+# AI API配置（可选）
+# AI_API_KEY: "your_api_key_here"
+# AI_BASE_URL: "https://api.openai.com/v1"
+

@@ -5,11 +5,10 @@
 """
 
 import random
-from nonebot import on_command
-from nonebot.adapters.onebot.v11 import Bot, Event
-from nonebot.log import logger
+from botpy.message import GroupMessage, DirectMessage
+from botpy import logging
 
-golden_sentence = on_command("每日金句", aliases={"金句", "夸夸", "夸ZerD"}, priority=5)
+_log = logging.get_logger()
 
 # 夸赞ZerD的金句库
 GOLDEN_SENTENCES = [
@@ -35,14 +34,46 @@ GOLDEN_SENTENCES = [
     "ZerD大佬，你的代码风格独树一帜，是编程界的清流！💧",
 ]
 
-@golden_sentence.handle()
-async def handle_golden_sentence(bot: Bot, event: Event):
-    """处理每日金句命令"""
+
+async def handle_golden_sentence(message: GroupMessage):
+    """处理群聊每日金句命令"""
     try:
         # 随机选择一句金句
         sentence = random.choice(GOLDEN_SENTENCES)
-        await golden_sentence.finish(sentence)
+        
+        await message._api.post_group_message(
+            group_openid=message.group_openid,
+            msg_type=0,
+            msg_id=message.id,
+            content=sentence
+        )
     except Exception as e:
-        logger.error(f"生成金句错误: {e}")
-        await golden_sentence.finish("生成金句时出现错误，但ZerD依然是最棒的！")
+        _log.error(f"生成金句错误: {e}")
+        await message._api.post_group_message(
+            group_openid=message.group_openid,
+            msg_type=0,
+            msg_id=message.id,
+            content="生成金句时出现错误，但ZerD依然是最棒的！"
+        )
 
+
+async def handle_golden_sentence_dm(message: DirectMessage):
+    """处理私聊每日金句命令"""
+    try:
+        # 随机选择一句金句
+        sentence = random.choice(GOLDEN_SENTENCES)
+        
+        await message._api.post_direct_message(
+            guild_id=message.guild_id,
+            msg_type=0,
+            msg_id=message.id,
+            content=sentence
+        )
+    except Exception as e:
+        _log.error(f"生成金句错误: {e}")
+        await message._api.post_direct_message(
+            guild_id=message.guild_id,
+            msg_type=0,
+            msg_id=message.id,
+            content="生成金句时出现错误，但ZerD依然是最棒的！"
+        )

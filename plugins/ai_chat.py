@@ -6,54 +6,75 @@ AI智能对话功能
 
 import httpx
 import os
-from nonebot import on_message, get_driver
-from nonebot.adapters.onebot.v11 import Bot, Event, Message
-from nonebot.rule import Rule
-from nonebot.params import CommandArg
-from nonebot.log import logger
+from botpy.ext.cog_yaml import read
+from botpy.message import GroupMessage, DirectMessage
+from botpy import logging
 
-# 获取配置
-driver = get_driver()
-AI_API_KEY = os.getenv("AI_API_KEY", "")
-AI_BASE_URL = os.getenv("AI_BASE_URL", "https://api.openai.com/v1")
+_log = logging.get_logger()
 
-# 检查消息是否为命令
-def is_not_command(event: Event) -> bool:
-    """检查消息是否不是命令（不以/开头）"""
-    msg = str(event.get_message()).strip()
-    return not msg.startswith('/')
+# 读取配置
+config = read(os.path.join(os.path.dirname(__file__), "../../config.yaml"))
+AI_API_KEY = config.get("AI_API_KEY", "")
+AI_BASE_URL = config.get("AI_BASE_URL", "https://api.openai.com/v1")
 
-# 创建消息处理器
-ai_chat = on_message(rule=Rule(is_not_command), priority=10, block=False)
 
-@ai_chat.handle()
-async def handle_ai_chat(bot: Bot, event: Event):
-    """处理AI对话"""
-    # 忽略群聊中的@消息（避免刷屏）
-    if event.message_type == "group":
-        # 检查是否@了机器人
-        if event.to_me:
-            user_msg = str(event.get_message()).strip()
-            # 移除@机器人的部分
-            user_msg = user_msg.replace(f"[CQ:at,qq={event.self_id}]", "").strip()
-        else:
-            return  # 群聊中未@机器人，不响应
-    else:
-        user_msg = str(event.get_message()).strip()
+async def handle_ai_chat(message: GroupMessage):
+    """处理群聊AI对话"""
+    user_msg = message.content.strip()
     
     # 如果消息为空或是命令，不处理
     if not user_msg or user_msg.startswith('/'):
         return
     
     try:
-        # 使用简单的AI回复（可以替换为实际的AI API）
-        # 这里使用一个简单的回复逻辑，你可以替换为OpenAI、Claude等API
+        # 获取AI回复
         reply = await get_ai_reply(user_msg)
         
-        await ai_chat.finish(reply)
+        # 发送回复
+        await message._api.post_group_message(
+            group_openid=message.group_openid,
+            msg_type=0,
+            msg_id=message.id,
+            content=reply
+        )
     except Exception as e:
-        logger.error(f"AI对话处理错误: {e}")
-        await ai_chat.finish("抱歉，我现在有点困惑，稍后再试吧~")
+        _log.error(f"AI对话处理错误: {e}")
+        await message._api.post_group_message(
+            group_openid=message.group_openid,
+            msg_type=0,
+            msg_id=message.id,
+            content="抱歉，我现在有点困惑，稍后再试吧~"
+        )
+
+
+async def handle_ai_chat_dm(message: DirectMessage):
+    """处理私聊AI对话"""
+    user_msg = message.content.strip()
+    
+    # 如果消息为空或是命令，不处理
+    if not user_msg or user_msg.startswith('/'):
+        return
+    
+    try:
+        # 获取AI回复
+        reply = await get_ai_reply(user_msg)
+        
+        # 发送回复
+        await message._api.post_direct_message(
+            guild_id=message.guild_id,
+            msg_type=0,
+            msg_id=message.id,
+            content=reply
+        )
+    except Exception as e:
+        _log.error(f"AI对话处理错误: {e}")
+        await message._api.post_direct_message(
+            guild_id=message.guild_id,
+            msg_type=0,
+            msg_id=message.id,
+            content="抱歉，我现在有点困惑，稍后再试吧~"
+        )
+
 
 async def get_ai_reply(user_msg: str) -> str:
     """
@@ -66,7 +87,7 @@ async def get_ai_reply(user_msg: str) -> str:
         try:
             return await call_ai_api(user_msg)
         except Exception as e:
-            logger.error(f"调用AI API失败: {e}")
+            _log.error(f"调用AI API失败: {e}")
             # API调用失败时回退到简单回复
             pass
     
@@ -81,6 +102,7 @@ async def get_ai_reply(user_msg: str) -> str:
     
     # 默认回复
     return f"我理解你说的是：{user_msg}\n（提示：AI对话功能需要配置API密钥，当前为简单回复模式）"
+
 
 async def call_ai_api(user_msg: str) -> str:
     """
@@ -118,4 +140,3 @@ async def call_ai_api(user_msg: str) -> str:
         
         result = response.json()
         return result["choices"][0]["message"]["content"].strip()
-
