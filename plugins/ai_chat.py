@@ -13,7 +13,9 @@ from botpy import logging
 _log = logging.get_logger()
 
 # 读取配置
-config = read(os.path.join(os.path.dirname(__file__), "../../config.yaml"))
+# 从plugins目录向上一级到项目根目录
+config_path = os.path.join(os.path.dirname(__file__), "..", "config.yaml")
+config = read(os.path.normpath(config_path))
 AI_API_KEY = config.get("AI_API_KEY", "")
 AI_BASE_URL = config.get("AI_BASE_URL", "https://api.openai.com/v1")
 

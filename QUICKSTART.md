@@ -19,10 +19,12 @@ python --version
 pip install -r requirements.txt
 ```
 
-如果遇到SSL证书问题或权限问题，使用国内镜像并添加`--user`参数：
+**注意**：在PowerShell中，如果使用 `.\requirements.txt` 遇到"找不到驱动器"错误，请直接使用 `requirements.txt`（不带 `.\`）。
+
+如果遇到SSL证书问题或权限问题，使用国内镜像：
 
 ```bash
-pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --user
+pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
 ```
 
 ### 第二步：获取QQ机器人凭证
