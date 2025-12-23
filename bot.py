@@ -4,7 +4,7 @@ QQ机器人主程序 - 使用qq-botpy框架（QQ群机器人）
 1. AI智能对话
 2. /看风景 - 随机显示风景图
 3. /看setu - 随机显示图片
-4. /每日金句 - 输出夸赞作者的金句
+4. /夸夸 - 输出夸赞作者的金句
 """
 
 import os
@@ -25,6 +25,26 @@ class MyClient(botpy.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.processed_messages = set()  # 用于去重，避免重复处理同一条消息
+    
+    def _get_user_name(self, message: GroupMessage) -> str:
+        """获取用户QQ名（昵称）"""
+        try:
+            # 尝试从message.author获取用户名
+            if hasattr(message, 'author') and message.author:
+                # 尝试获取member_nick（群昵称）
+                if hasattr(message.author, 'member_nick') and message.author.member_nick:
+                    return message.author.member_nick
+                # 尝试获取username（用户名）
+                if hasattr(message.author, 'username') and message.author.username:
+                    return message.author.username
+                # 尝试获取nick（昵称）
+                if hasattr(message.author, 'nick') and message.author.nick:
+                    return message.author.nick
+        except Exception as e:
+            print(f"[Debug] 获取用户名失败: {e}")
+        
+        # 如果都获取不到，返回默认值
+        return "朋友"
     
     async def on_ready(self):
         """机器人准备就绪"""
@@ -56,8 +76,10 @@ class MyClient(botpy.Client):
             group_openid = message.group_openid if hasattr(message, 'group_openid') else 'N/A'
             member_openid = message.author.member_openid if hasattr(message, 'author') and hasattr(message.author, 'member_openid') else 'N/A'
             
+            # 获取用户名
+            user_name = self._get_user_name(message)
             print(f"[Info] 收到QQ群@消息：{msg}")
-            print(f"[Debug] 消息ID: {message.id}, 群ID: {group_openid}, 用户ID: {member_openid}")
+            print(f"[Debug] 消息ID: {message.id}, 群ID: {group_openid}, 用户ID: {member_openid}, 用户名: {user_name}")
             
             # 移除@机器人的部分
             if "@" in msg:
@@ -82,10 +104,12 @@ class MyClient(botpy.Client):
             elif msg.startswith("/"):
                 # 其他命令，发送帮助信息
                 print("[Debug] 执行帮助命令")
-                help_text = """可用命令：
+                user_name = self._get_user_name(message)
+                help_text = f"""{user_name}，可用命令：
 /看风景 - 获取随机风景图
 /看setu - 获取随机图片
 /每日金句 - 获取夸赞ZerD的金句
+/夸夸 - 获取夸赞ZerD的金句
 
 直接发送消息（非命令）可进行AI对话"""
                 try:
@@ -127,20 +151,23 @@ class MyClient(botpy.Client):
                     url=image_url
                 )
                 
+                # 获取用户名
+                user_name = self._get_user_name(message)
                 # 发送图片消息
                 await message._api.post_group_message(
                     group_openid=message.group_openid,
                     msg_type=7,  # 7表示富媒体类型
                     msg_id=message.id,
                     media=file_result,
-                    content="美丽的风景图来啦~"
+                    content=f"{user_name}，美丽的风景图来啦~"
                 )
         except Exception as e:
+            user_name = self._get_user_name(message)
             await message._api.post_group_message(
                 group_openid=message.group_openid,
                 msg_type=0,
                 msg_id=message.id,
-                content="获取风景图失败，请稍后再试~"
+                content=f"{user_name}，获取风景图失败，请稍后再试~"
             )
             print(f"[Error] 获取风景图失败: {e}")
             import traceback
@@ -150,7 +177,9 @@ class MyClient(botpy.Client):
         """处理QQ群看setu命令"""
         try:
             async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-                response = await client.get("https://moe.jitsu.top/api")
+              #  response = await client.get("https://imgapi.lie.moe/random")
+                response = await client.get("https://hatsunemiku-tov.imwork.net/api/miku/?redirect=1")
+              #  response = await client.get("https://moe.jitsu.top/api")
                 response.raise_for_status()
                 image_url = str(response.url)
                 
@@ -161,20 +190,23 @@ class MyClient(botpy.Client):
                     url=image_url
                 )
                 
+                # 获取用户名
+                user_name = self._get_user_name(message)
                 # 发送图片消息
                 await message._api.post_group_message(
                     group_openid=message.group_openid,
                     msg_type=7,  # 7表示富媒体类型
                     msg_id=message.id,
                     media=file_result,
-                    content="图片来啦~"
+                    content=f"{user_name}，图片来啦~"
                 )
         except Exception as e:
+            user_name = self._get_user_name(message)
             await message._api.post_group_message(
                 group_openid=message.group_openid,
                 msg_type=0,
                 msg_id=message.id,
-                content="获取图片失败，请稍后再试~"
+                content=f"{user_name}，获取图片失败，请稍后再试~"
             )
             print(f"[Error] 获取setu失败: {e}")
             import traceback
@@ -183,12 +215,13 @@ class MyClient(botpy.Client):
     async def _handle_golden_sentence_group(self, message: GroupMessage):
         """处理QQ群每日金句命令"""
         import random
+        user_name = self._get_user_name(message)
         sentences = [
-            "ZerD，你是代码界的艺术家，每一行代码都闪耀着智慧的光芒！✨",
-            "ZerD大佬，你的编程技术如行云流水，让人叹为观止！👏",
-            "ZerD，你不仅技术精湛，更是将创意与代码完美融合的天才！🌟",
-            "ZerD，你的代码就像诗一样优雅，每一个函数都是艺术品！💎",
-            "ZerD大佬，你的编程思维深邃如海，让人望尘莫及！🌊",
+            f"{user_name}，ZerD是代码界的艺术家，每一行代码都闪耀着智慧的光芒！✨",
+            f"{user_name}，ZerD大佬的编程技术如行云流水，让人叹为观止！👏",
+            f"{user_name}，ZerD不仅技术精湛，更是将创意与代码完美融合的天才！🌟",
+            f"{user_name}，ZerD的代码就像诗一样优雅，每一个函数都是艺术品！💎",
+            f"{user_name}，ZerD大佬的编程思维深邃如海，让人望尘莫及！🌊",
         ]
         sentence = random.choice(sentences)
         await message._api.post_group_message(
@@ -204,7 +237,8 @@ class MyClient(botpy.Client):
         if not user_msg:
             return
         
-        reply = "我理解你说的是：" + user_msg + "\n（提示：AI对话功能需要配置API密钥）"
+        user_name = self._get_user_name(message)
+        reply = f"{user_name}，我理解你说的是：{user_msg}\n（提示：AI对话功能需要配置API密钥）"
         await message._api.post_group_message(
             group_openid=message.group_openid,
             msg_type=0,
