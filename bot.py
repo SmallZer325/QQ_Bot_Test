@@ -149,49 +149,25 @@ class MyClient(botpy.Client):
     async def _handle_setu_group(self, message: GroupMessage):
         """处理QQ群看setu命令"""
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                params = {"r18": 0, "num": 1, "size": "original"}
-                response = await client.get("https://api.lolicon.app/setu/v2", params=params)
+            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+                response = await client.get("https://moe.jitsu.top/api")
                 response.raise_for_status()
-                data = response.json()
-                
-                if data.get("error") or not data.get("data"):
-                    await message._api.post_group_message(
-                        group_openid=message.group_openid,
-                        msg_type=0,
-                        msg_id=message.id,
-                        content="没有找到图片，请稍后再试~"
-                    )
-                    return
-                
-                image_info = data["data"][0]
-                image_url = image_info.get("urls", {}).get("original")
-                title = image_info.get("title", "未知标题")
-                author = image_info.get("author", "未知作者")
-                pid = image_info.get("pid", "未知")
-                
-                # 先发送文字信息
-                text_content = f"标题：{title}\n作者：{author}\nPID：{pid}"
-                await message._api.post_group_message(
-                    group_openid=message.group_openid,
-                    msg_type=0,
-                    msg_id=message.id,
-                    content=text_content
-                )
+                image_url = str(response.url)
                 
                 # 上传文件资源
                 file_result = await message._api.post_group_file(
                     group_openid=message.group_openid,
-                    file_type=1,
+                    file_type=1,  # 1表示图片
                     url=image_url
                 )
                 
                 # 发送图片消息
                 await message._api.post_group_message(
                     group_openid=message.group_openid,
-                    msg_type=7,
+                    msg_type=7,  # 7表示富媒体类型
                     msg_id=message.id,
-                    media=file_result
+                    media=file_result,
+                    content="图片来啦~"
                 )
         except Exception as e:
             await message._api.post_group_message(
