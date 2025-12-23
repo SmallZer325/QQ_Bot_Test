@@ -1,18 +1,17 @@
 """
 QQ机器人主程序 - 使用qq-botpy框架（QQ群机器人）
-功能：
-1. AI智能对话
-2. /看风景 - 随机显示风景图
-3. /看setu - 随机显示图片
-4. /夸夸 - 输出夸赞作者的金句
+功能通过plugins模块实现
 """
 
 import os
 import botpy
-import httpx
 from botpy import logging
 from botpy.ext.cog_yaml import read
 from botpy.message import GroupMessage, DirectMessage
+
+# 导入插件
+from plugins import scenery, golden_sentence, ai_chat, chengyu, utils
+from plugins import setu_new as setu
 
 # 读取配置
 config = read(os.path.join(os.path.dirname(__file__), "config.yaml"))
@@ -25,26 +24,8 @@ class MyClient(botpy.Client):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.processed_messages = set()  # 用于去重，避免重复处理同一条消息
-    
-    def _get_user_name(self, message: GroupMessage) -> str:
-        """获取用户QQ名（昵称）"""
-        try:
-            # 尝试从message.author获取用户名
-            if hasattr(message, 'author') and message.author:
-                # 尝试获取member_nick（群昵称）
-                if hasattr(message.author, 'member_nick') and message.author.member_nick:
-                    return message.author.member_nick
-                # 尝试获取username（用户名）
-                if hasattr(message.author, 'username') and message.author.username:
-                    return message.author.username
-                # 尝试获取nick（昵称）
-                if hasattr(message.author, 'nick') and message.author.nick:
-                    return message.author.nick
-        except Exception as e:
-            print(f"[Debug] 获取用户名失败: {e}")
-        
-        # 如果都获取不到，返回默认值
-        return "朋友"
+        # 将成语接龙状态管理器传递给插件
+        chengyu.chengyu_games = {}
     
     async def on_ready(self):
         """机器人准备就绪"""
@@ -77,7 +58,7 @@ class MyClient(botpy.Client):
             member_openid = message.author.member_openid if hasattr(message, 'author') and hasattr(message.author, 'member_openid') else 'N/A'
             
             # 获取用户名
-            user_name = self._get_user_name(message)
+            user_name = utils.get_user_name(message)
             print(f"[Info] 收到QQ群@消息：{msg}")
             print(f"[Debug] 消息ID: {message.id}, 群ID: {group_openid}, 用户ID: {member_openid}, 用户名: {user_name}")
             
@@ -88,28 +69,39 @@ class MyClient(botpy.Client):
             
             print(f"[Debug] 处理后的消息：{msg}")
             
+            # 检查是否正在进行成语接龙
+            if chengyu.is_chengyu_game_active(group_openid):
+                # 如果正在进行接龙，优先处理接龙逻辑
+                print("[Debug] 检测到正在进行成语接龙，处理接龙逻辑")
+                await chengyu.handle_chengyu_reply(message, msg)
+                return
+            
             # 处理命令
             if msg.startswith("/看风景") or msg.startswith("/风景"):
                 print("[Debug] 执行看风景命令")
-                await self._handle_scenery_group(message)
+                await scenery.handle_scenery(message)
             
             elif msg.startswith("/看setu") or msg.startswith("/setu") or msg.startswith("/看涩图") or msg.startswith("/涩图"):
                 print("[Debug] 执行看setu命令")
-                await self._handle_setu_group(message)
+                await setu.handle_setu(message)
             
             elif msg.startswith("/每日金句") or msg.startswith("/金句") or msg.startswith("/夸夸"):
                 print("[Debug] 执行每日金句命令")
-                await self._handle_golden_sentence_group(message)
+                await golden_sentence.handle_golden_sentence(message)
+            
+            elif msg.startswith("/成语接龙") or msg.startswith("/接龙"):
+                print("[Debug] 执行成语接龙命令")
+                await chengyu.handle_chengyu_start(message)
             
             elif msg.startswith("/"):
                 # 其他命令，发送帮助信息
                 print("[Debug] 执行帮助命令")
-                user_name = self._get_user_name(message)
                 help_text = f"""{user_name}，可用命令：
 /看风景 - 获取随机风景图
 /看setu - 获取随机图片
 /每日金句 - 获取夸赞ZerD的金句
 /夸夸 - 获取夸赞ZerD的金句
+/成语接龙 - 开始成语接龙游戏
 
 直接发送消息（非命令）可进行AI对话"""
                 try:
@@ -128,123 +120,13 @@ class MyClient(botpy.Client):
             else:
                 # 非命令消息，作为AI对话处理
                 print("[Debug] 执行AI对话")
-                await self._handle_ai_chat_group(message)
+                await ai_chat.handle_ai_chat(message)
         
         except Exception as e:
             _log.error(f"处理QQ群消息时出错: {e}")
             print(f"[Error] 处理QQ群消息时出错: {e}")
             import traceback
             traceback.print_exc()
-    
-    async def _handle_scenery_group(self, message: GroupMessage):
-        """处理QQ群看风景命令"""
-        try:
-            async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-                response = await client.get("https://t.alcy.cc/fj")
-                response.raise_for_status()
-                image_url = str(response.url)
-                
-                # 上传文件资源
-                file_result = await message._api.post_group_file(
-                    group_openid=message.group_openid,
-                    file_type=1,  # 1表示图片
-                    url=image_url
-                )
-                
-                # 获取用户名
-                user_name = self._get_user_name(message)
-                # 发送图片消息
-                await message._api.post_group_message(
-                    group_openid=message.group_openid,
-                    msg_type=7,  # 7表示富媒体类型
-                    msg_id=message.id,
-                    media=file_result,
-                    content=f"{user_name}，美丽的风景图来啦~"
-                )
-        except Exception as e:
-            user_name = self._get_user_name(message)
-            await message._api.post_group_message(
-                group_openid=message.group_openid,
-                msg_type=0,
-                msg_id=message.id,
-                content=f"{user_name}，获取风景图失败，请稍后再试~"
-            )
-            print(f"[Error] 获取风景图失败: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    async def _handle_setu_group(self, message: GroupMessage):
-        """处理QQ群看setu命令"""
-        try:
-            async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
-              #  response = await client.get("https://imgapi.lie.moe/random")
-                response = await client.get("https://hatsunemiku-tov.imwork.net/api/miku/?redirect=1")
-              #  response = await client.get("https://moe.jitsu.top/api")
-                response.raise_for_status()
-                image_url = str(response.url)
-                
-                # 上传文件资源
-                file_result = await message._api.post_group_file(
-                    group_openid=message.group_openid,
-                    file_type=1,  # 1表示图片
-                    url=image_url
-                )
-                
-                # 获取用户名
-                user_name = self._get_user_name(message)
-                # 发送图片消息
-                await message._api.post_group_message(
-                    group_openid=message.group_openid,
-                    msg_type=7,  # 7表示富媒体类型
-                    msg_id=message.id,
-                    media=file_result,
-                    content=f"{user_name}，图片来啦~"
-                )
-        except Exception as e:
-            user_name = self._get_user_name(message)
-            await message._api.post_group_message(
-                group_openid=message.group_openid,
-                msg_type=0,
-                msg_id=message.id,
-                content=f"{user_name}，获取图片失败，请稍后再试~"
-            )
-            print(f"[Error] 获取setu失败: {e}")
-            import traceback
-            traceback.print_exc()
-    
-    async def _handle_golden_sentence_group(self, message: GroupMessage):
-        """处理QQ群每日金句命令"""
-        import random
-        user_name = self._get_user_name(message)
-        sentences = [
-            f"{user_name}，ZerD是代码界的艺术家，每一行代码都闪耀着智慧的光芒！✨",
-            f"{user_name}，ZerD大佬的编程技术如行云流水，让人叹为观止！👏",
-            f"{user_name}，ZerD不仅技术精湛，更是将创意与代码完美融合的天才！🌟",
-            f"{user_name}，ZerD的代码就像诗一样优雅，每一个函数都是艺术品！💎",
-            f"{user_name}，ZerD大佬的编程思维深邃如海，让人望尘莫及！🌊",
-        ]
-        sentence = random.choice(sentences)
-        await message._api.post_group_message(
-            group_openid=message.group_openid,
-            msg_type=0,
-            msg_id=message.id,
-            content=sentence
-        )
-    
-    async def _handle_ai_chat_group(self, message: GroupMessage):
-        """处理QQ群AI对话"""
-        user_msg = message.content.strip() if hasattr(message, 'content') else ''
-        if not user_msg:
-            return
-        
-        user_name = self._get_user_name(message)
-        reply = f"{user_name}，我理解你说的是：{user_msg}\n（提示：AI对话功能需要配置API密钥）"
-        await message._api.post_group_message(
-            group_openid=message.group_openid,
-            msg_type=0,
-            msg_id=message.id,
-            content=reply
-        )
     
     async def on_direct_message_create(self, message: DirectMessage):
         """处理私聊消息"""
@@ -258,18 +140,7 @@ class MyClient(botpy.Client):
             
             # 处理命令（私聊暂时使用文本回复）
             if msg.startswith("/每日金句") or msg.startswith("/金句") or msg.startswith("/夸夸"):
-                import random
-                sentences = [
-                    "ZerD，你是代码界的艺术家，每一行代码都闪耀着智慧的光芒！✨",
-                    "ZerD大佬，你的编程技术如行云流水，让人叹为观止！👏",
-                ]
-                sentence = random.choice(sentences)
-                await message._api.post_direct_message(
-                    guild_id=message.guild_id,
-                    msg_type=0,
-                    msg_id=message.id,
-                    content=sentence
-                )
+                await golden_sentence.handle_golden_sentence_dm(message)
             else:
                 await message._api.post_direct_message(
                     guild_id=message.guild_id,

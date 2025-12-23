@@ -7,6 +7,7 @@
 import httpx
 from botpy.message import GroupMessage, DirectMessage
 from botpy import logging
+from .utils import get_user_name
 
 _log = logging.get_logger()
 
@@ -30,38 +31,43 @@ async def handle_scenery(message: GroupMessage):
                 url=image_url
             )
             
+            # 获取用户名
+            user_name = get_user_name(message)
             # 发送图片消息（富媒体类型）
             await message._api.post_group_message(
                 group_openid=message.group_openid,
                 msg_type=7,  # 7表示富媒体类型
                 msg_id=message.id,
                 media=file_result,
-                content="美丽的风景图来啦~"
+                content=f"{user_name}，美丽的风景图来啦~"
             )
             
     except httpx.TimeoutException:
         _log.error("获取风景图超时")
+        user_name = get_user_name(message)
         await message._api.post_group_message(
             group_openid=message.group_openid,
             msg_type=0,
             msg_id=message.id,
-            content="获取风景图超时，请稍后再试~"
+            content=f"{user_name}，获取风景图超时，请稍后再试~"
         )
     except httpx.HTTPStatusError as e:
         _log.error(f"获取风景图HTTP错误: {e}")
+        user_name = get_user_name(message)
         await message._api.post_group_message(
             group_openid=message.group_openid,
             msg_type=0,
             msg_id=message.id,
-            content="获取风景图失败，服务器可能暂时不可用~"
+            content=f"{user_name}，获取风景图失败，请稍后再试~"
         )
     except Exception as e:
         _log.error(f"获取风景图错误: {e}")
+        user_name = get_user_name(message)
         await message._api.post_group_message(
             group_openid=message.group_openid,
             msg_type=0,
             msg_id=message.id,
-            content="获取风景图时出现错误，请稍后再试~"
+            content=f"{user_name}，获取风景图失败，请稍后再试~"
         )
 
 

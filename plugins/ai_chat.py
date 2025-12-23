@@ -9,6 +9,7 @@ import os
 from botpy.ext.cog_yaml import read
 from botpy.message import GroupMessage, DirectMessage
 from botpy import logging
+from .utils import get_user_name
 
 _log = logging.get_logger()
 
@@ -29,23 +30,27 @@ async def handle_ai_chat(message: GroupMessage):
         return
     
     try:
+        user_name = get_user_name(message)
         # 获取AI回复
         reply = await get_ai_reply(user_msg)
+        # 添加用户名前缀
+        reply_with_name = f"{user_name}，{reply}"
         
         # 发送回复
         await message._api.post_group_message(
             group_openid=message.group_openid,
             msg_type=0,
             msg_id=message.id,
-            content=reply
+            content=reply_with_name
         )
     except Exception as e:
         _log.error(f"AI对话处理错误: {e}")
+        user_name = get_user_name(message)
         await message._api.post_group_message(
             group_openid=message.group_openid,
             msg_type=0,
             msg_id=message.id,
-            content="抱歉，我现在有点困惑，稍后再试吧~"
+            content=f"{user_name}，抱歉，我现在有点困惑，稍后再试吧~"
         )
 
 
@@ -102,7 +107,7 @@ async def get_ai_reply(user_msg: str) -> str:
     if any(q in user_msg for q in questions):
         return "这是一个很好的问题！让我想想...（AI功能需要配置API密钥才能使用完整功能）"
     
-    # 默认回复
+    # 默认回复（不包含用户名，由调用者添加）
     return f"我理解你说的是：{user_msg}\n（提示：AI对话功能需要配置API密钥，当前为简单回复模式）"
 
 

@@ -7,6 +7,7 @@
 import random
 from botpy.message import GroupMessage, DirectMessage
 from botpy import logging
+from .utils import get_user_name
 
 _log = logging.get_logger()
 
@@ -38,8 +39,10 @@ GOLDEN_SENTENCES = [
 async def handle_golden_sentence(message: GroupMessage):
     """处理群聊每日金句命令"""
     try:
-        # 随机选择一句金句
-        sentence = random.choice(GOLDEN_SENTENCES)
+        user_name = get_user_name(message)
+        # 随机选择一句金句，并添加用户名
+        base_sentence = random.choice(GOLDEN_SENTENCES)
+        sentence = f"{user_name}，{base_sentence}"
         
         await message._api.post_group_message(
             group_openid=message.group_openid,

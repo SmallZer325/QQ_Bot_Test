@@ -9,6 +9,7 @@ import httpx
 import json
 from botpy.message import GroupMessage, DirectMessage
 from botpy import logging
+from .utils import get_user_name
 
 _log = logging.get_logger()
 
