@@ -44,7 +44,7 @@ class MyClient(botpy.Client):
             print(f"[Debug] 获取用户名失败: {e}")
         
         # 如果都获取不到，返回默认值
-        return "朋友"
+        return "达沙彼"
     
     async def on_ready(self):
         """机器人准备就绪"""
